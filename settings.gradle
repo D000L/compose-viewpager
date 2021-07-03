@@ -8,3 +8,4 @@ dependencyResolutionManagement {
 }
 rootProject.name = "compose-viewpager"
 include ':app'
+include ':viewpager'
