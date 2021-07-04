@@ -1,12 +1,13 @@
 package com.doool.viewpager
 
-import android.util.Log
 import android.view.View
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.LayoutScopeMarker
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
@@ -14,8 +15,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.GraphicsLayerScope
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.unit.Constraints
-import com.doool.viewpager.transformers.DefaultTransformer
-import kotlinx.coroutines.CoroutineScope
+import com.doool.viewpager.transformers.Pager2_SpinnerTransformer
 import kotlinx.coroutines.launch
 
 @Composable
@@ -29,8 +29,7 @@ fun rememberLazyViewPagerState(
 }
 
 interface ViewPagerTransformer {
-
-    fun transformPage(view: ViewPage, position: Float)
+    fun transformPage(view: PageModifier, position: Float)
 }
 
 @Stable
@@ -38,7 +37,6 @@ class ViewPagerState(
     var currentPage: Int = 0,
     val pagerTransformer: ViewPagerTransformer
 ) {
-    lateinit var scope: CoroutineScope
     lateinit var orientation: ViewPagerOrientation
 
     var viewSize: Size? = null
@@ -55,23 +53,19 @@ class ViewPagerState(
         return (index + dragOffset.value / getTargetBaseSize())
     }
 
-    fun transformPage(page: ViewPage, index: Int) {
+    fun transformPage(page: PageModifier, index: Int) {
         pagerTransformer.transformPage(page, calculate(index))
     }
 
-    fun initOffset() {
-        scope.launch {
-            dragOffset.snapTo(getTargetBaseSize() * currentPage)
-        }
+    suspend fun initOffset() {
+        dragOffset.snapTo(getTargetBaseSize() * currentPage)
     }
 
-    fun updateOffset(offset: Float) {
-        scope.launch {
-            dragOffset.snapTo(dragOffset.value + offset)
-        }
+    suspend fun updateOffset(offset: Float) {
+        dragOffset.snapTo(dragOffset.value + offset)
     }
 
-    fun updatePage() {
+    suspend fun updatePage() {
         val searchRange = if (calculate(currentPage) < 0f)
             (currentPage until itemCount)
         else
@@ -81,16 +75,12 @@ class ViewPagerState(
             if (calculate(index) in -0.5f..0.5f) {
                 currentPage = index
 
-                scope.launch {
-                    dragOffset.animateTo(-index * getTargetBaseSize())
-                }
+                dragOffset.animateTo(-index * getTargetBaseSize())
                 return
             }
         }
 
-        scope.launch {
-            dragOffset.animateTo(-currentPage * getTargetBaseSize())
-        }
+        dragOffset.animateTo(-currentPage * getTargetBaseSize())
     }
 }
 
@@ -98,45 +88,83 @@ enum class ViewPagerOrientation {
     Horizontal, Vertical
 }
 
+
 @LayoutScopeMarker
 interface ViewPagerScope {
+    fun item(content: @Composable ViewPagerItemScope.() -> Unit)
+}
+
+@LayoutScopeMarker
+interface ViewPagerItemScope {
     fun getPagePosition(): Float
 }
 
-class ViewPagerScopeImpl(private val index: Int, private val viewPagerState: ViewPagerState) :
-    ViewPagerScope {
+interface ViewPagerItemProvider {
+    val itemCount: Int
+
+    fun getContent(index: Int): @Composable ViewPagerItemScope.() -> Unit
+}
+
+private class ViewPagerScopeImpl : ViewPagerScope, ViewPagerItemProvider {
+    private val list: MutableList<(@Composable ViewPagerItemScope.() -> Unit)> = mutableListOf()
+    override val itemCount: Int get() = list.size
+
+    override fun item(content: @Composable ViewPagerItemScope.() -> Unit) {
+        list.add(content)
+    }
+
+    override fun getContent(index: Int): @Composable ViewPagerItemScope.() -> Unit {
+        return list.getOrNull(index) ?: {}
+    }
+}
+
+private class ViewPagerItemScopeImpl(val index: Int, val pagerState: ViewPagerState) :
+    ViewPagerItemScope {
     override fun getPagePosition(): Float {
-        return viewPagerState.calculate(index)
+        return pagerState.calculate(index)
     }
 }
 
 @Composable
-fun <T : Any> ViewPager(
+private fun rememberStateOfItemsProvider(
+    content: ViewPagerScope.() -> Unit
+): State<ViewPagerItemProvider> {
+    val latestContent = rememberUpdatedState(content)
+    return remember {
+        derivedStateOf { ViewPagerScopeImpl().apply(latestContent.value) }
+    }
+}
+
+@Composable
+fun ViewPager(
     modifier: Modifier = Modifier,
-    items: List<T> = listOf(),
     initPage: Int = 0,
     orientation: ViewPagerOrientation,
-    transformer: ViewPagerTransformer = DefaultTransformer(),
+    transformer: ViewPagerTransformer = Pager2_SpinnerTransformer(),
     pageScale: Float = 1f,
-    content: @Composable ViewPagerScope.(T) -> Unit
+    content: ViewPagerScope.() -> Unit
 ) {
     val viewPagerState = rememberLazyViewPagerState(initPage, transformer)
 
-    val visibilityies = (0..items.size).map {
-        remember {
-            mutableStateOf(View.VISIBLE)
-        }
+    val viewPagerItemProvider by rememberStateOfItemsProvider(content)
+
+    val visibilityies = (0..viewPagerItemProvider.itemCount).map {
+        mutableStateOf(View.VISIBLE)
     }
 
-    viewPagerState.scope = rememberCoroutineScope()
-    viewPagerState.itemCount = items.size
+    val coroutineScope = rememberCoroutineScope()
+
+    viewPagerState.itemCount = viewPagerItemProvider.itemCount
     viewPagerState.orientation = orientation
 
-    viewPagerState.initOffset()
+    LaunchedEffect(viewPagerState) {
+        viewPagerState.initOffset()
+    }
 
     val draggableState = rememberDraggableState {
-        Log.d("asdfasf", it.toString())
-        viewPagerState.updateOffset(it)
+        coroutineScope.launch {
+            viewPagerState.updateOffset(it)
+        }
     }
 
     val draggableModifier = Modifier
@@ -155,10 +183,9 @@ fun <T : Any> ViewPager(
             .fillMaxSize()
     ) {
         Layout(modifier = Modifier.fillMaxSize(), content = {
-            items.forEachIndexed { index, item ->
-                Box(modifier = Modifier) {
-                    ViewPagerScopeImpl(index, viewPagerState).content(item)
-                }
+            (0 until viewPagerItemProvider.itemCount).forEachIndexed { index, item ->
+                viewPagerItemProvider.getContent(index)
+                    .invoke(ViewPagerItemScopeImpl(index, viewPagerState))
             }
         }) { measurables, constraints ->
             val scaledConstraints = Constraints(
@@ -184,12 +211,12 @@ fun <T : Any> ViewPager(
                     if (visibilityies[index].value == View.VISIBLE) {
                         placeable.placeWithLayer(offsetX, offsetY) {
                             viewPagerState.transformPage(
-                                ViewPage(placeable.width, placeable.height, this)
-                                    .apply {
-                                        visibilityFun = {
-                                            visibilityies[index].value = it
-                                        }
-                                    },
+                                PageModifier(
+                                    placeable.width,
+                                    placeable.height,
+                                    this,
+                                    visibilityies[index]
+                                ),
                                 index
                             )
                         }
@@ -200,7 +227,14 @@ fun <T : Any> ViewPager(
     }
 }
 
-class ViewPage(val width: Int, val height: Int, private val layerScope: GraphicsLayerScope) {
+class PageModifier(
+    val width: Int,
+    val height: Int,
+    private val layerScope: GraphicsLayerScope,
+    visibilityState: MutableState<Int>
+) {
+    var visibility: Int by visibilityState
+
     var scaleX: Float by layerScope::scaleX
     var scaleY: Float by layerScope::scaleY
 
@@ -240,13 +274,4 @@ class ViewPage(val width: Int, val height: Int, private val layerScope: Graphics
         set(value) {
             layerScope.transformOrigin = layerScope.transformOrigin.copy(pivotFractionY = value)
         }
-
-    var visibility: Int = 0
-        set(value) {
-            visibilityFun(value)
-        }
-
-
-    var visibilityFun: (Int) -> Unit = {}
-
 }
