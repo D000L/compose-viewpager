@@ -11,11 +11,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.GraphicsLayerScope
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.unit.Constraints
-import com.doool.viewpager.transformers.Pager2_SpinnerTransformer
+import com.doool.viewpager.transformers.DefaultTransformer
 import kotlinx.coroutines.launch
 
 @Composable
@@ -35,22 +34,15 @@ interface ViewPagerTransformer {
 @Stable
 class ViewPagerState(
     var currentPage: Int = 0,
-    val pagerTransformer: ViewPagerTransformer
+    private val pagerTransformer: ViewPagerTransformer
 ) {
-    lateinit var orientation: ViewPagerOrientation
-
-    var viewSize: Size? = null
     var dragOffset = Animatable(0f)
 
+    var itemSize: Int = 0
     var itemCount = 0
 
-    private fun getTargetBaseSize(): Float {
-        return if (orientation == ViewPagerOrientation.Vertical) viewSize?.height ?: 0f
-        else viewSize?.width ?: 0f
-    }
-
     fun calculate(index: Int): Float {
-        return (index + dragOffset.value / getTargetBaseSize())
+        return (index + dragOffset.value / itemSize)
     }
 
     fun transformPage(page: PageModifier, index: Int) {
@@ -58,7 +50,7 @@ class ViewPagerState(
     }
 
     suspend fun initOffset() {
-        dragOffset.snapTo(getTargetBaseSize() * currentPage)
+        dragOffset.snapTo(itemSize.toFloat() * currentPage)
     }
 
     suspend fun updateOffset(offset: Float) {
@@ -75,19 +67,18 @@ class ViewPagerState(
             if (calculate(index) in -0.5f..0.5f) {
                 currentPage = index
 
-                dragOffset.animateTo(-index * getTargetBaseSize())
+                dragOffset.animateTo(-index * itemSize.toFloat())
                 return
             }
         }
 
-        dragOffset.animateTo(-currentPage * getTargetBaseSize())
+        dragOffset.animateTo(-currentPage * itemSize.toFloat())
     }
 }
 
 enum class ViewPagerOrientation {
     Horizontal, Vertical
 }
-
 
 @LayoutScopeMarker
 interface ViewPagerScope {
@@ -140,26 +131,16 @@ fun ViewPager(
     modifier: Modifier = Modifier,
     initPage: Int = 0,
     orientation: ViewPagerOrientation,
-    transformer: ViewPagerTransformer = Pager2_SpinnerTransformer(),
-    pageScale: Float = 1f,
+    transformer: ViewPagerTransformer = DefaultTransformer(),
+    pageScale: Float = 0.5f,
     content: ViewPagerScope.() -> Unit
 ) {
     val viewPagerState = rememberLazyViewPagerState(initPage, transformer)
-
     val viewPagerItemProvider by rememberStateOfItemsProvider(content)
-
-    val visibilityies = (0..viewPagerItemProvider.itemCount).map {
-        mutableStateOf(View.VISIBLE)
-    }
 
     val coroutineScope = rememberCoroutineScope()
 
     viewPagerState.itemCount = viewPagerItemProvider.itemCount
-    viewPagerState.orientation = orientation
-
-    LaunchedEffect(viewPagerState) {
-        viewPagerState.initOffset()
-    }
 
     val draggableState = rememberDraggableState {
         coroutineScope.launch {
@@ -188,35 +169,34 @@ fun ViewPager(
                     .invoke(ViewPagerItemScopeImpl(index, viewPagerState))
             }
         }) { measurables, constraints ->
-            val scaledConstraints = Constraints(
-                maxWidth = (constraints.maxWidth * pageScale).toInt(),
-                maxHeight = (constraints.maxHeight * pageScale).toInt()
-            )
+            val scaledConstraints = constraints.scale(pageScale)
 
-            val placeables = measurables.map { it.measure(scaledConstraints) }
+            val pageInfoList =
+                measurables.map { Pair(it.measure(scaledConstraints), PageModifier()) }
 
-            viewPagerState.viewSize =
-                Size(placeables.first().width.toFloat(), placeables.first().height.toFloat())
+            viewPagerState.itemSize =
+                if (orientation == ViewPagerOrientation.Horizontal) scaledConstraints.maxWidth
+                else scaledConstraints.maxHeight
 
             layout(scaledConstraints.maxWidth, scaledConstraints.maxHeight) {
-                placeables.forEachIndexed { index, placeable ->
-
+                pageInfoList.forEachIndexed { index, (placeable, modifier) ->
                     var offsetX = (scaledConstraints.maxWidth - placeable.width) / 2
                     var offsetY = (scaledConstraints.maxHeight - placeable.height) / 2
 
-                    if (orientation == ViewPagerOrientation.Horizontal)
-                        offsetX += (placeable.width * viewPagerState.calculate(index)).toInt()
-                    else offsetY += (placeable.height * viewPagerState.calculate(index)).toInt()
+                    val pageOffset = viewPagerState.calculate(index)
+                    when (orientation) {
+                        ViewPagerOrientation.Horizontal -> offsetX += (placeable.width * pageOffset).toInt()
+                        ViewPagerOrientation.Vertical -> offsetY += (placeable.height * pageOffset).toInt()
+                    }
 
-                    if (visibilityies[index].value == View.VISIBLE) {
+                    if (modifier.visibility == View.VISIBLE) {
                         placeable.placeWithLayer(offsetX, offsetY) {
                             viewPagerState.transformPage(
-                                PageModifier(
-                                    placeable.width,
-                                    placeable.height,
-                                    this,
-                                    visibilityies[index]
-                                ),
+                                modifier.apply {
+                                    width = placeable.width
+                                    height = placeable.height
+                                    layerScope = this@placeWithLayer
+                                },
                                 index
                             )
                         }
@@ -225,29 +205,78 @@ fun ViewPager(
             }
         }
     }
+
+    LaunchedEffect(viewPagerState) {
+        viewPagerState.initOffset()
+    }
 }
 
+fun Constraints.scale(scale: Float) = Constraints(
+    minWidth = (minWidth * scale).toInt(),
+    maxWidth = (maxWidth * scale).toInt(),
+    minHeight = (minHeight * scale).toInt(),
+    maxHeight = (maxHeight * scale).toInt()
+)
+
+
 class PageModifier(
-    val width: Int,
-    val height: Int,
-    private val layerScope: GraphicsLayerScope,
-    visibilityState: MutableState<Int>
 ) {
-    var visibility: Int by visibilityState
+    lateinit var layerScope: GraphicsLayerScope
 
-    var scaleX: Float by layerScope::scaleX
-    var scaleY: Float by layerScope::scaleY
+    var height: Int = 0
+    var width: Int = 0
 
-    var translationX: Float by layerScope::translationX
-    var translationY: Float by layerScope::translationY
+    var visibility: Int by mutableStateOf(View.VISIBLE)
 
-    var rotationX: Float by layerScope::rotationX
-    var rotationY: Float by layerScope::rotationY
-    var rotation: Float by layerScope::rotationZ
+    var scaleX: Float
+        get() = layerScope.scaleX
+        set(value) {
+            layerScope.scaleX = value
+        }
+    var scaleY: Float
+        get() = layerScope.scaleY
+        set(value) {
+            layerScope.scaleY = value
+        }
 
-    var cameraDistance: Float by layerScope::cameraDistance
+    var translationX: Float
+        get() = layerScope.translationX
+        set(value) {
+            layerScope.translationX = value
+        }
+    var translationY: Float
+        get() = layerScope.translationY
+        set(value) {
+            layerScope.translationY = value
+        }
 
-    var alpha by layerScope::alpha
+    var rotationX: Float
+        get() = layerScope.rotationX
+        set(value) {
+            layerScope.rotationX = value
+        }
+    var rotationY: Float
+        get() = layerScope.rotationY
+        set(value) {
+            layerScope.rotationY = value
+        }
+    var rotation: Float
+        get() = layerScope.rotationZ
+        set(value) {
+            layerScope.rotationZ = value
+        }
+
+    var cameraDistance: Float
+        get() = layerScope.cameraDistance
+        set(value) {
+            layerScope.cameraDistance = value
+        }
+
+    var alpha: Float
+        get() = layerScope.alpha
+        set(value) {
+            layerScope.alpha = value
+        }
 
     var pivotX: Float
         get() = layerScope.transformOrigin.pivotFractionX * width
