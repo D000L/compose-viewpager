@@ -1,4 +1,4 @@
-package com.doool.viewpager.transformers
+package com.doool.compose_viewpager.transformer.compose
 
 import android.view.View
 import com.doool.viewpager.PageModifier
