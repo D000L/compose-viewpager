@@ -102,8 +102,8 @@ enum class ViewPagerOrientation {
 @LayoutScopeMarker
 interface ViewPagerScope {
     fun item(content: @Composable ViewPagerItemScope.() -> Unit)
-    fun items(count: Int, content: @Composable ViewPagerItemScope.() -> Unit)
-    fun <T> items(items: List<T>, content: @Composable ViewPagerItemScope.(T) -> Unit)
+    fun items(count: Int, content: @Composable ViewPagerItemScope.(index: Int) -> Unit)
+    fun <T> items(items: List<T>, content: @Composable ViewPagerItemScope.(item: T) -> Unit)
 }
 
 @LayoutScopeMarker
@@ -125,9 +125,9 @@ private class ViewPagerScopeImpl : ViewPagerScope, ViewPagerItemProvider {
         list.add(content)
     }
 
-    override fun items(count: Int, content: @Composable ViewPagerItemScope.() -> Unit) {
-        (0 until count).forEach { _ ->
-            list.add(content)
+    override fun items(count: Int, content: @Composable ViewPagerItemScope.(index: Int) -> Unit) {
+        (0 until count).forEach { index ->
+            list.add { content(index) }
         }
     }
 
@@ -135,8 +135,8 @@ private class ViewPagerScopeImpl : ViewPagerScope, ViewPagerItemProvider {
         items: List<T>,
         content: @Composable ViewPagerItemScope.(item: T) -> Unit
     ) {
-        items.forEach {
-            list.add { content(it) }
+        items.forEach { item ->
+            list.add { content(item) }
         }
     }
 
