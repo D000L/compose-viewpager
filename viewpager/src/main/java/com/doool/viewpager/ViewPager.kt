@@ -46,7 +46,6 @@ class ViewPagerState(
             field = value
             updateOffScreenRange()
         }
-    var pageSize: Int = 0
 
     var pageRange by mutableStateOf(IntRange(0, pageCount))
 
@@ -58,11 +57,11 @@ class ViewPagerState(
     }
 
     fun calculatePageOffset(index: Int): Float {
-        return (index + dragOffset.value / pageSize)
+        return (index + dragOffset.value)
     }
 
     suspend fun initOffset() {
-        dragOffset.snapTo(pageSize.toFloat() * currentPage)
+        dragOffset.snapTo(currentPage.toFloat())
     }
 
     suspend fun updateOffset(offset: Float) {
@@ -79,12 +78,12 @@ class ViewPagerState(
             if (calculatePageOffset(index) in -0.5f..0.5f) {
                 currentPage = index
                 updateOffScreenRange()
-                dragOffset.animateTo(-index * pageSize.toFloat())
+                dragOffset.animateTo(-index.toFloat())
                 return
             }
         }
 
-        dragOffset.animateTo(-currentPage * pageSize.toFloat())
+        dragOffset.animateTo(-currentPage.toFloat())
     }
 }
 
@@ -188,9 +187,11 @@ fun ViewPager(
 
     val coroutineScope = rememberCoroutineScope()
 
+    var pageSize = 0
+
     val draggableState = rememberDraggableState {
         coroutineScope.launch {
-            state.updateOffset(it)
+            state.updateOffset(if (pageSize == 0) 0f else it / pageSize)
         }
     }
 
@@ -219,7 +220,9 @@ fun ViewPager(
                             val scope = remember(index, state) {
                                 ViewPagerItemScopeImpl(index, state)
                             }
-                            viewPagerItemProvider.getContent(index).invoke(scope)
+                            scope.apply {
+                                viewPagerItemProvider.getContent(index).invoke(scope)
+                            }
                         }
                     }
                 }
@@ -229,7 +232,7 @@ fun ViewPager(
             val pageInfoList =
                 measurables.map { Pair(it.measure(scaledConstraints), PageModifier()) }
 
-            state.pageSize =
+            pageSize =
                 if (orientation == ViewPagerOrientation.Horizontal) scaledConstraints.maxWidth
                 else scaledConstraints.maxHeight
 
