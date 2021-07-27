@@ -17,18 +17,8 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
-*/ /**
- * A card based page flip animation PageTransformer implementation for ViewPager
- *
- * Set the object of this transformer to any ViewPager object.
- * For example, myViewPager.setPageTransformer(true, new CardFlipPageTransformer());
- *
- * @see [EasyFlipViewPager](http://github.com/wajahatkarim3/EasyFlipViewPager)
- *
- *
- * @author Wajahat Karim (http://wajahatkarim.com)
- * [https://github.com/wajahatkarim3/EasyFlipViewPager/blob/master/easyflipviewpager/src/main/java/com/wajahatkarim3/easyflipviewpager/CardFlipPageTransformer.java]
- */
+*/
+
 class CardFlipPageTransformer : ViewPagerTransformer {
 
     var isScalable = true
@@ -45,9 +35,9 @@ class CardFlipPageTransformer : ViewPagerTransformer {
 
     private fun setVisibility(page: PageModifier, position: Float) {
         if (position < 0.5 && position > -0.5) {
-            page.visibility = View.VISIBLE
+            page.visibility= View.VISIBLE
         } else {
-            page.visibility = View.INVISIBLE
+            page.visibility= View.INVISIBLE
         }
     }
 

@@ -5,22 +5,25 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.*
+import androidx.compose.material.MaterialTheme
+import androidx.compose.material.Surface
+import androidx.compose.material.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.doool.compose_viewpager.transformer.compose.CardFlipPageTransformer
 import com.doool.compose_viewpager.ui.theme.ComposeviewpagerTheme
 import com.doool.viewpager.ViewPager
 import com.doool.viewpager.ViewPagerOrientation
 import com.doool.viewpager.ViewPagerTransformer
 import com.doool.viewpager.transformers.DefaultTransformer
-import com.doool.viewpager.transformers.Pager2_SpinnerTransformer
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -39,126 +42,58 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun ViewPagers() {
     Column {
-        var expended by remember { mutableStateOf(false) }
-
-        val transformerList = listOf<ViewPagerTransformer>(
-            DefaultTransformer()
-        )
-
-        var transformer: ViewPagerTransformer by remember { mutableStateOf(Pager2_SpinnerTransformer()) }
-
-        Row(Modifier.fillMaxWidth()) {
-            Text(text = transformer::class.java.simpleName, fontSize = 10.sp)
-        }
-
-        DropdownMenu(expanded = expended, onDismissRequest = { expended = false }) {
-            transformerList.forEach {
-                DropdownMenuItem(onClick = {
-                    transformer = it
-                    expended = false
-                }) {
-//                    DefaultText(text = it::class.java.simpleName)
-                }
-            }
+        val transformer by remember {
+            mutableStateOf(CardFlipPageTransformer())
         }
 
         ViewPager(
-            modifier = Modifier
-                .background(Color.Gray)
-                .height(500.dp),
-            orientation = ViewPagerOrientation.Horizontal,
-            transformer = transformer
+                modifier = Modifier
+                        .background(Color.Gray)
+                        .fillMaxSize(),
+                orientation = ViewPagerOrientation.Horizontal,
+                transformer = transformer
         ) {
-//            val position = getPagePosition()
-
-            (0..2).toList().forEach {
-                item {
-                    val offset = getPagePosition()
-                    ItemSample(offset)
-                }
-            }
-
-            item {
+            items(10) {
                 val offset = getPagePosition()
-                ItemSample2(offset)
+                ItemSample(it)
             }
 
-            (0..2).toList().forEach {
-                item {
-                    val offset = getPagePosition()
-                    ItemSample(offset)
-                }
+            items(10) {
+                val offset = getPagePosition()
+                ItemSample(it)
             }
         }
     }
 }
 
 @Composable
-fun ItemSample(offset: Float) {
+fun ItemSample(index :Int) {
     Box(
-        modifier = Modifier
-//                        .alpha(position)
-//                .size(200.dp, 300.dp)
-//            .alpha(offset)
-//            .scale(offset)
-            .shadow(
-                elevation = 8.dp,
-                shape = RoundedCornerShape(8.dp)
-            )
-            .background(
-                color = Color.White,
-                shape = RoundedCornerShape(8.dp)
-            )
+            modifier = Modifier
+                    .width(200.dp)
+                    .shadow(
+                            elevation = 0.dp,
+                            shape = RoundedCornerShape(0.dp)
+                    )
+                    .background(
+                            color = Color.White,
+                            shape = RoundedCornerShape(0.dp)
+                    )
     ) {
         Column(
-            modifier = Modifier.padding(vertical = 10.dp, horizontal = 20.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                modifier = Modifier.padding(vertical = 10.dp, horizontal = 0.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "Card $1"
+                    text = "Card $1"
             )
 
             Text(
-                modifier = Modifier
-                    .weight(1f)
-                    .wrapContentSize(),
-                fontSize = 10.sp,
-                text = "Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod"
-            )
-        }
-    }
-}
-
-@Composable
-fun ItemSample2(offset: Float) {
-    Box(
-        modifier = Modifier
-//                        .alpha(position)
-//                .size(200.dp, 300.dp)
-//            .alpha(offset)
-            .shadow(
-                elevation = 8.dp,
-                shape = RoundedCornerShape(8.dp)
-            )
-            .background(
-                color = Color.White,
-                shape = RoundedCornerShape(8.dp)
-            )
-    ) {
-        Column(
-            modifier = Modifier.padding(vertical = 10.dp, horizontal = 20.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = "CCCCCACA $1"
-            )
-
-            Text(
-                modifier = Modifier
-                    .weight(1f)
-                    .wrapContentSize(),
-                fontSize = 10.sp,
-                text = "Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod"
+                    modifier = Modifier
+                            .weight(1f)
+                            .wrapContentSize(),
+                    fontSize = 10.sp,
+                    text = "$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index"
             )
         }
     }
