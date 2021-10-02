@@ -23,6 +23,7 @@ import com.doool.compose_viewpager.transformer.compose.CardFlipPageTransformer
 import com.doool.compose_viewpager.ui.theme.ComposeviewpagerTheme
 import com.doool.viewpager.ViewPager
 import com.doool.viewpager.ViewPagerOrientation
+import com.doool.viewpager.rememberViewPagerState
 
 class MainActivity : ComponentActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
@@ -45,12 +46,15 @@ fun ViewPagers() {
       mutableStateOf(CardFlipPageTransformer())
     }
 
+    val state = rememberViewPagerState(currentPage = 4)
+
     ViewPager(
+      state = state,
       modifier = Modifier
         .background(Color.Gray)
         .fillMaxSize(),
       orientation = ViewPagerOrientation.Horizontal,
-      transformer = transformer
+//      transformer = transformer
     ) {
       items(10) {
         val offset = getPagePosition()
@@ -79,22 +83,36 @@ fun ItemSample(index: Int) {
         shape = RoundedCornerShape(0.dp)
       )
   ) {
-    Column(
-      modifier = Modifier.padding(vertical = 10.dp, horizontal = 0.dp),
-      horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-      Text(
-        text = "Card $1"
-      )
-
-      Text(
-        modifier = Modifier
-          .weight(1f)
-          .wrapContentSize(),
-        fontSize = 10.sp,
-        text = "$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index"
-      )
-    }
+    Text(text = "$index", fontSize = 200.sp)
   }
+//  Box(
+//    modifier = Modifier
+//      .width(200.dp)
+//      .shadow(
+//        elevation = 0.dp,
+//        shape = RoundedCornerShape(0.dp)
+//      )
+//      .background(
+//        color = Color.White,
+//        shape = RoundedCornerShape(0.dp)
+//      )
+//  ) {
+//    Column(
+//      modifier = Modifier.padding(vertical = 10.dp, horizontal = 0.dp),
+//      horizontalAlignment = Alignment.CenterHorizontally
+//    ) {
+//      Text(
+//        text = "Card $1"
+//      )
+//
+//      Text(
+//        modifier = Modifier
+//          .weight(1f)
+//          .wrapContentSize(),
+//        fontSize = 10.sp,
+//        text = "$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index$index"
+//      )
+//    }
+//  }
 }
 

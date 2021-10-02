@@ -37,7 +37,7 @@ class ViewPagerState(
         initPage: Int = 0,
         private var offscreenPageLimit: Int = -1
 ) {
-    var dragOffset = Animatable(0f)
+    var dragOffset = Animatable(-initPage.toFloat())
 
     var currentPage: Int by mutableStateOf(initPage)
 
@@ -60,10 +60,6 @@ class ViewPagerState(
 
     fun calculatePageOffset(index: Int): Float {
         return (index + dragOffset.value)
-    }
-
-    suspend fun initOffset() {
-        dragOffset.snapTo(currentPage.toFloat())
     }
 
     suspend fun updateOffset(offset: Float) {
@@ -267,10 +263,6 @@ fun ViewPager(
                 }
             }
         }
-    }
-
-    LaunchedEffect(state) {
-        state.initOffset()
     }
 }
 
